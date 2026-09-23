@@ -369,7 +369,7 @@ limit violations, and the detailed results on the monitored elements:
 
 ```julia
 julia> Powsybl.SecurityAnalysis.get_pre_contingency_result(result)
-CONVERGED::ComputationStatus = 0
+CONVERGED::LoadFlowComponentStatus = 0
 
 julia> Powsybl.SecurityAnalysis.get_post_contingency_results(result)
 2×2 DataFrame

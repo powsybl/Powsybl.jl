@@ -357,7 +357,7 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
 
   // ContingencyContextType
 
-  // PostContingencyComputationStatus (used for both pre- and post-contingency results)
+  // PostContingencyComputationStatus (post-contingency results; the pre-contingency status is a LoadFlowComponentStatus)
   mod.add_bits<pypowsybl::PostContingencyComputationStatus>("PostContingencyComputationStatus", jlcxx::julia_type("CppEnum"));
   mod.set_const("POST_CONTINGENCY_CONVERGED", pypowsybl::PostContingencyComputationStatus::CONVERGED);
   mod.set_const("POST_CONTINGENCY_MAX_ITERATION_REACHED", pypowsybl::PostContingencyComputationStatus::MAX_ITERATION_REACHED);
@@ -367,7 +367,7 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
 
   mod.add_type<pre_contingency_result>("PreContingencyResult")
           .method("status", [](const pre_contingency_result& r) {
-             return static_cast<pypowsybl::PostContingencyComputationStatus>(r.status);
+             return static_cast<pypowsybl::LoadFlowComponentStatus>(r.status);
           });
 
   mod.add_type<post_contingency_result>("PostContingencyResult")

@@ -12,7 +12,7 @@ module SecurityAnalysis
   using CxxWrap
 
   """
-  Computation status of a pre- or post-contingency state of a security analysis.
+  Computation status of a post-contingency state of a security analysis.
   """
   @enum ComputationStatus begin
     CONVERGED = LibPowsybl.POST_CONTINGENCY_CONVERGED
@@ -174,12 +174,14 @@ module SecurityAnalysis
                                   voltage_level_ids::Vector{String} = String[],
                                   three_windings_transformer_ids::Vector{String} = String[],
                                   contingency_ids::Vector{String} = String[])
+    # One empty id stands for "no specific contingency"; an empty list registers no monitor.
+    ids = isempty(contingency_ids) ? [""] : contingency_ids
     LibPowsybl.add_monitored_elements(analysis.handle,
                                       Contingency.raw(contingency_context_type),
                                       StdVector{StdString}(branch_ids),
                                       StdVector{StdString}(voltage_level_ids),
                                       StdVector{StdString}(three_windings_transformer_ids),
-                                      StdVector{StdString}(contingency_ids))
+                                      StdVector{StdString}(ids))
     return nothing
   end
 
@@ -300,13 +302,13 @@ module SecurityAnalysis
   end
 
   """
-      get_pre_contingency_result(result::Result) -> ComputationStatus
+      get_pre_contingency_result(result::Result) -> LoadFlow.LoadFlowComponentStatus
 
-  Return the computation status of the pre-contingency (base case) state.
+  Return the load flow status of the pre-contingency (base case) state.
   """
   function get_pre_contingency_result(result::Result)
     pre = LibPowsybl.get_pre_contingency_result(result.handle)
-    return ComputationStatus(LibPowsybl.status(pre[]))
+    return LoadFlow.LoadFlowComponentStatus(LibPowsybl.status(pre[]))
   end
 
   """
