@@ -416,10 +416,12 @@ julia> Powsybl.Network.create_shunt_compensators(network;
            section_count = 1, model_type = "NON_LINEAR",
            non_linear = (id = ["SHUNT2", "SHUNT2"], g = [0.0, 0.0], b = [1e-5, 2e-5]))
 
-# Ratio tap changer with steps on a transformer
-julia> Powsybl.Network.create_ratio_tap_changers(network;
-           id = "TWT", tap = 1, low_tap = 0, target_v = 400.0, regulating = false,
-           steps = (id = ["TWT", "TWT", "TWT"], g = [0.0, 0.0, 0.0], b = [0.0, 0.0, 0.0],
+# Ratio tap changer with steps, on a network that has a transformer
+julia> eurostag = Powsybl.Network.create_eurostag_tutorial_example1()
+julia> Powsybl.Network.create_ratio_tap_changers(eurostag;
+           id = "NGEN_NHV1", tap = 1, low_tap = 0, target_v = 400.0, regulating = false,
+           steps = (id = ["NGEN_NHV1", "NGEN_NHV1", "NGEN_NHV1"],
+                    g = [0.0, 0.0, 0.0], b = [0.0, 0.0, 0.0],
                     r = [0.0, 0.0, 0.0], x = [0.0, 0.0, 0.0], rho = [0.9, 1.0, 1.1]))
 ```
 

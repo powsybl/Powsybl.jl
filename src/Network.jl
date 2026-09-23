@@ -707,13 +707,6 @@ module Network
     return nothing
   end
 
-  """
-      update_extensions(network, extension_name; table_name = "", kwargs...)
-
-  Update existing extensions of type `extension_name`. Some extensions expose several
-  tables (e.g. a main table and a secondary one); `table_name` selects which one to
-  update (empty for the default table).
-  """
   function create_extensions(network::NetworkHandle, extension_name::String, df::DataFrame; kwargs...)
     _reject_mixed_input(kwargs)
     return create_extensions(network, extension_name, Any[df])
@@ -730,6 +723,13 @@ module Network
     return update_extensions(network, extension_name; table_name = table_name, _column_pairs(df)...)
   end
 
+  """
+      update_extensions(network, extension_name; table_name = "", kwargs...)
+
+  Update existing extensions of type `extension_name`. Some extensions expose several
+  tables (e.g. a main table and a secondary one); `table_name` selects which one to
+  update (empty for the default table).
+  """
   function update_extensions(network::NetworkHandle, extension_name::String; table_name::String = "", kwargs...)
     builder = LibPowsybl.ElementDataframe()
     _fill_builder!(builder, kwargs,
