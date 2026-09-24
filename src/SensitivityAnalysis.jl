@@ -226,6 +226,8 @@ module SensitivityAnalysis
   Register a factor matrix: sensitivities of each monitored quantity in `function_ids`
   (e.g. branch ids) with respect to each variable in `variable_ids` (e.g. injections).
   The matrix is retrieved after the run via its `matrix_id` (default `"default"`).
+  `contingency_context_type` is `ALL`, `NONE` or `SPECIFIC` (with `contingencies_ids`);
+  `ONLY_CONTINGENCIES` is not supported for factor matrices.
   """
   function add_factor_matrix(analysis::SensitivityAnalysisContext, function_ids::Vector{String}, variable_ids::AbstractVector;
                              matrix_id::String = "default",
@@ -480,8 +482,7 @@ module SensitivityAnalysis
   """
       set_default_provider(provider::String)
 
-  Set the sensitivity analysis provider used when none is given to [`run_ac`](@ref) or
-  [`run_dc`](@ref).
+  Set the sensitivity analysis provider used when none is given to [`run`](@ref).
   """
   function set_default_provider(provider::String)
     LibPowsybl.set_default_sensitivity_analysis_provider(provider)

@@ -294,6 +294,14 @@ end
   @test size(Powsybl.SensitivityAnalysis.get_sensitivity_matrix(result, "all", "L7-5-0")) == expected
   @test size(Powsybl.SensitivityAnalysis.get_sensitivity_matrix(result, "pre", "")) == expected
   @test size(Powsybl.SensitivityAnalysis.get_sensitivity_matrix(result, "post", "L7-5-0")) == expected
+
+  # A state a matrix is not evaluated on comes back as zeros
+  sens_values(matrix_id, contingency_id) = Powsybl.SensitivityAnalysis.get_sensitivity_values(result, matrix_id, contingency_id)
+  @test !all(iszero, sens_values("all", "")) && !all(iszero, sens_values("all", "L7-5-0"))
+  @test sens_values("pre", "") ≈ sens_values("all", "")
+  @test all(iszero, sens_values("pre", "L7-5-0"))
+  @test sens_values("post", "L7-5-0") ≈ sens_values("all", "L7-5-0")
+  @test all(iszero, sens_values("post", ""))
 end
 
 @testset "Test sensitivity analysis contingencies" begin
@@ -358,12 +366,12 @@ end
   dc_report = Powsybl.Report.ReportNode()
   dc_result = Powsybl.SensitivityAnalysis.run(analysis, network; report_node = dc_report)
   @test nrow(Powsybl.SensitivityAnalysis.get_reference_matrix(dc_result)) == 1
-  @test !isempty(string(dc_report))
+  @test occursin("Sensitivity analysis on network 'ieee9cdf'", string(dc_report))
 
   ac_analysis = Powsybl.SensitivityAnalysis.create_ac_analysis()
   Powsybl.SensitivityAnalysis.add_branch_flow_factor_matrix(ac_analysis, ["L7-8-0"], generators)
   ac_report = Powsybl.Report.ReportNode()
   ac_result = Powsybl.SensitivityAnalysis.run(ac_analysis, network; report_node = ac_report)
   @test nrow(Powsybl.SensitivityAnalysis.get_reference_matrix(ac_result)) == 1
-  @test !isempty(string(ac_report))
+  @test occursin("Sensitivity analysis on network 'ieee9cdf'", string(ac_report))
 end
