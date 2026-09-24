@@ -120,15 +120,15 @@ end
   @test result.component_results[1, :].status == Powsybl.LoadFlow.CONVERGED
 
   text = string(report_node)
-  @test text isa String
-  @test !isempty(text)
+  @test occursin("Load flow on network 'ieee9cdf'", text)
 
   json = Powsybl.Report.to_json(report_node)
-  @test occursin("{", json)
+  @test occursin("Load flow on network", json)
 
   # Network import with a report node
   import_report_node = Powsybl.Report.ReportNode()
   imported = Powsybl.Network.load("simple-eu.xiidm"; report_node = import_report_node)
   @test imported.name == "simple-eu"
+  @test occursin("XIIDM import done", string(import_report_node))
   @test !isempty(string(import_report_node))
 end
