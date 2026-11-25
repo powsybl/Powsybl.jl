@@ -367,6 +367,11 @@ module Network
     return LibPowsybl.update_connectable_status(network.handle, id, connected, allowDisconnectors, allowFictitious)
   end
 
+  # Wrap a scalar filter value into a 1-element tuple so it can be iterated like a
+  # collection. Strings must be wrapped explicitly, otherwise they iterate over chars.
+  _as_collection(x::Union{Real, AbstractString}) = (x,)
+  _as_collection(x) = x
+
   """
       get_elements_ids(network, type; nominal_voltages, countries,
                        main_connected_component, main_synchronous_component,
@@ -374,16 +379,26 @@ module Network
 
   Return the ids of the elements of a given `type` (a `LibPowsybl.ElementType`), with
   optional filtering by nominal voltage, country and connected/synchronous component.
+
+  `nominal_voltages` accepts a single number or any collection of numbers (e.g. `400`,
+  `[225, 400]`, `Set([400.0])`); `countries` accepts a single string or any collection
+  of strings (e.g. `"FR"`, `["FR", "BE"]`). An empty collection means no filtering.
+
+  By default only elements in the main connected and main synchronous components are
+  returned; set `main_connected_component = false` / `main_synchronous_component = false`
+  to include the others.
   """
   function get_elements_ids(network::NetworkHandle, type::LibPowsybl.ElementType;
-                            nominal_voltages::Vector{Float64} = Float64[],
-                            countries::Vector{String} = String[],
+                            nominal_voltages = Float64[],
+                            countries = String[],
                             main_connected_component::Bool = true,
                             main_synchronous_component::Bool = true,
                             not_connected_to_same_bus_at_both_sides::Bool = false)
+    voltages = Float64[Float64(v) for v in _as_collection(nominal_voltages)]
+    country_codes = String[String(c) for c in _as_collection(countries)]
     ids = LibPowsybl.get_network_elements_ids(network.handle, type,
-                                              StdVector{Float64}(nominal_voltages),
-                                              StdVector{StdString}(countries),
+                                              StdVector{Float64}(voltages),
+                                              StdVector{StdString}(country_codes),
                                               main_connected_component,
                                               main_synchronous_component,
                                               not_connected_to_same_bus_at_both_sides)

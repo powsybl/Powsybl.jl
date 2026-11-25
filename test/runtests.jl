@@ -164,6 +164,59 @@ end
   @test !isempty(generator_ids)
 end
 
+@testset "Test get_elements_ids filter argument forms" begin
+  network = Powsybl.Network.create_four_substations_node_breaker()
+  LOAD = Powsybl.LibPowsybl.LOAD
+
+  # Substation S1 is outside the main synchronous component of this network, so
+  # disable the component filters: this test is only about the voltage/country forms.
+  get_ids(; kwargs...) = Powsybl.Network.get_elements_ids(network, LOAD;
+                                                          main_connected_component = false,
+                                                          main_synchronous_component = false,
+                                                          kwargs...)
+
+  all_loads = get_ids()
+  @test length(all_loads) == size(Powsybl.Network.get_loads(network), 1)
+
+  # Empty filters of any element type mean "no filtering"
+  @test get_ids(nominal_voltages = [], countries = []) == all_loads
+
+  # Default component filters exclude elements outside the main components
+  @test length(Powsybl.Network.get_elements_ids(network, LOAD)) < length(all_loads)
+
+  # Derive a nominal voltage and a country that the first load is known to match
+  first_load = Powsybl.Network.get_loads(network)[1, :]
+  load_id, load_vl = first_load["id"], first_load["voltage_level_id"]
+  vls = Powsybl.Network.get_voltage_levels(network)
+  vl_row = vls[vls.id .== load_vl, :]
+  v = vl_row[1, "nominal_v"]
+  substations = Powsybl.Network.get_substations(network)
+  country = substations[substations.id .== vl_row[1, "substation_id"], "country"][1]
+
+  # Nominal voltage: scalar, Float vector, Set, Int forms and range must all be accepted
+  expected = get_ids(nominal_voltages = [Float64(v)])
+  @test load_id in expected
+  @test length(expected) < length(all_loads)  # the filter actually filters on this network
+  @test get_ids(nominal_voltages = v) == expected
+  @test get_ids(nominal_voltages = Set([v])) == expected
+  if isinteger(v)
+    iv = Int(v)
+    @test get_ids(nominal_voltages = iv) == expected
+    @test get_ids(nominal_voltages = [iv]) == expected
+    @test get_ids(nominal_voltages = iv:iv) == expected
+  end
+
+  # Country: scalar string, vector, Set, tuple and SubString must all be accepted
+  if !isempty(country)
+    expected_c = get_ids(countries = [country])
+    @test load_id in expected_c
+    @test get_ids(countries = country) == expected_c
+    @test get_ids(countries = Set([country])) == expected_c
+    @test get_ids(countries = (country,)) == expected_c
+    @test get_ids(countries = SubString(country, 1)) == expected_c
+  end
+end
+
 @testset "Test bus/breaker view" begin
   network = Powsybl.Network.create_ieee9()
   voltage_levels = Powsybl.Network.get_voltage_levels(network)
