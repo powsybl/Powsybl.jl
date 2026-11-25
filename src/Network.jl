@@ -357,14 +357,14 @@ module Network
   end
 
   """
-      update_connectable_status(network::NetworkHandle, id::String, connected::Bool) -> Bool
+      update_connectable_status(network::NetworkHandle, id::String, connected::Bool, allowDisconnectors::Bool, allowFictitious::Bool) -> Bool
 
   Connect (`connected = true`) or disconnect (`connected = false`) the connectable
   identified by `id` (a load, generator, line, ...). Return `true` if the status was
   actually changed.
   """
-  function update_connectable_status(network::NetworkHandle, id::String, connected::Bool)
-    return LibPowsybl.update_connectable_status(network.handle, id, connected)
+  function update_connectable_status(network::NetworkHandle, id::String, connected::Bool, allowDisconnectors::Bool = false, allowFictitious::Bool = false)
+    return LibPowsybl.update_connectable_status(network.handle, id, connected, allowDisconnectors, allowFictitious)
   end
 
   """

@@ -360,8 +360,9 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
             return pypowsybl::updateSwitchPosition(network, id, open);
     }, "Open or close a switch, returns true if the state was changed");
 
-  mod.method("update_connectable_status", [] (pypowsybl::JavaHandle network, std::string const& id, bool connected) {
-            return pypowsybl::updateConnectableStatus(network, id, connected);
+  mod.method("update_connectable_status", [] (pypowsybl::JavaHandle network, std::string const& id, bool connected,
+                                              bool allowDisconnectors, bool allowFictitious) {
+            return pypowsybl::updateConnectableStatus(network, id, connected, allowDisconnectors, allowFictitious);
     }, "Connect or disconnect a connectable, returns true if the state was changed");
 
   mod.method("get_network_elements_ids", [] (pypowsybl::JavaHandle network, element_type type,
