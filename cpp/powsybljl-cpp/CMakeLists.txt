@@ -23,10 +23,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(POWSYBL_CPP_INCLUDE_DIR ${POWSYBL_INSTALL_DIR}/include/powsybl-cpp)
 
-include_directories(${Julia_INCLUDE_DIRS} ${POWSYBL_CPP_INCLUDE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${Julia_INCLUDE_DIRS} ${POWSYBL_CPP_INCLUDE_DIR})
 link_directories(${POWSYBL_INSTALL_DIR}/lib)
 
-add_library(PowsyblJlWrap SHARED powsybl_jl.cpp)
+add_library(PowsyblJlWrap SHARED powsybl_jl.cpp element_dataframe_jl.cpp)
 target_link_libraries(PowsyblJlWrap PUBLIC JlCxx::cxxwrap_julia JlCxx::cxxwrap_julia_stl powsybl-cpp)
 set_property(TARGET PowsyblJlWrap PROPERTY CXX_STANDARD 17)
 

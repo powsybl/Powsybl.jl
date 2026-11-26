@@ -10,9 +10,11 @@
 #include <memory>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #include "jlcxx/jlcxx.hpp"
 #include "powsybl-cpp.h"
+#include "element_dataframe_jl.h"
 
 // Necessary to compile to map struct with no constructor ?
 template <> struct jlcxx::IsMirroredType<series> : std::false_type {};
@@ -110,6 +112,7 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
   mod.set_const("NON_LINEAR_SHUNT_COMPENSATOR_SECTION", element_type::NON_LINEAR_SHUNT_COMPENSATOR_SECTION);
   mod.set_const("LINEAR_SHUNT_COMPENSATOR_SECTION", element_type::LINEAR_SHUNT_COMPENSATOR_SECTION);
   mod.set_const("BOUNDARY_LINE", element_type::BOUNDARY_LINE);
+  mod.set_const("BOUNDARY_LINE_GENERATION", element_type::BOUNDARY_LINE_GENERATION);
   mod.set_const("TIE_LINE", element_type::TIE_LINE);
   mod.set_const("LCC_CONVERTER_STATION", element_type::LCC_CONVERTER_STATION);
   mod.set_const("VSC_CONVERTER_STATION", element_type::VSC_CONVERTER_STATION);
@@ -132,6 +135,18 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
   mod.set_const("BRANCH", element_type::BRANCH);
   mod.set_const("TERMINAL", element_type::TERMINAL);
   mod.set_const("SUB_NETWORK", element_type::SUB_NETWORK);
+  mod.set_const("GROUND", element_type::GROUND);
+  mod.set_const("SELECTED_OPERATIONAL_LIMITS", element_type::SELECTED_OPERATIONAL_LIMITS);
+  mod.set_const("AREA", element_type::AREA);
+  mod.set_const("AREA_VOLTAGE_LEVELS", element_type::AREA_VOLTAGE_LEVELS);
+  mod.set_const("AREA_BOUNDARIES", element_type::AREA_BOUNDARIES);
+  mod.set_const("INTERNAL_CONNECTION", element_type::INTERNAL_CONNECTION);
+  mod.set_const("PROPERTIES", element_type::PROPERTIES);
+  mod.set_const("DC_LINE", element_type::DC_LINE);
+  mod.set_const("DC_NODE", element_type::DC_NODE);
+  mod.set_const("DC_BUS", element_type::DC_BUS);
+  mod.set_const("DC_GROUND", element_type::DC_GROUND);
+  mod.set_const("VOLTAGE_SOURCE_CONVERTER", element_type::VOLTAGE_SOURCE_CONVERTER);
 
   mod.add_bits<filter_attributes_type>("FilterAttributes", jlcxx::julia_type("CppEnum"));
   mod.set_const("ALL_ATTRIBUTES", filter_attributes_type::ALL_ATTRIBUTES);
@@ -396,4 +411,203 @@ JLCXX_MODULE define_module_powsybl(jlcxx::Module& mod)
   mod.method("get_bus_breaker_view_elements", [] (pypowsybl::JavaHandle network, std::string voltageLevel) {
             return pypowsybl::getBusBreakerViewElements(network, voltageLevel);
     }, "Get the bus/breaker view elements of a voltage level");
+
+  // Element creation / update from a dataframe builder
+  mod.add_type<ElementDataframe>("ElementDataframe")
+        .constructor<>()
+        .method("add_string_series", [] (ElementDataframe& b, std::string const& name, bool index, std::vector<std::string> const& values) {
+            b.add_string_series(name, index, values);
+        })
+        .method("add_double_series", [] (ElementDataframe& b, std::string const& name, bool index, std::vector<double> const& values) {
+            b.add_double_series(name, index, values);
+        })
+        .method("add_int_series", [] (ElementDataframe& b, std::string const& name, bool index, std::vector<int> const& values) {
+            b.add_int_series(name, index, values);
+        })
+        .method("add_bool_series", [] (ElementDataframe& b, std::string const& name, bool index, std::vector<int> const& values) {
+            b.add_bool_series(name, index, values);
+        })
+        .method("finish_dataframe", [] (ElementDataframe& b) {
+            b.finish_dataframe();
+        });
+
+  mod.method("create_element", [] (pypowsybl::JavaHandle network, ElementDataframe& builder, element_type type) {
+            std::vector<dataframe> dfs = builder.build_dataframes();
+            dataframe_array dataframes;
+            dataframes.dataframes = dfs.data();
+            dataframes.dataframes_count = (int) dfs.size();
+            pypowsybl::createElement(network, &dataframes, type);
+    }, "Create network elements of a given type from a dataframe builder");
+
+  mod.method("update_element", [] (pypowsybl::JavaHandle network, ElementDataframe& builder, element_type type,
+                                   bool perUnit, double nominalApparentPower) {
+            dataframe df = builder.build_dataframe();
+            pypowsybl::updateNetworkElementsWithSeries(network, &df, type, perUnit, nominalApparentPower);
+    }, "Update network elements of a given type from a dataframe builder");
+
+  // Dataframe schema metadata (parallel arrays: names, types, index flags).
+  // Types follow the series type codes: 0 = string, 1 = double, 2 = int, 3 = boolean.
+  mod.method("get_element_metadata_names", [] (element_type type) {
+            std::vector<std::string> result;
+            for (const auto& m : pypowsybl::getNetworkDataframeMetadata(type)) { result.push_back(m.name()); }
+            return result;
+    }, "Get the series names of the update/read dataframe of an element type");
+
+  mod.method("get_element_metadata_types", [] (element_type type) {
+            std::vector<int> result;
+            for (const auto& m : pypowsybl::getNetworkDataframeMetadata(type)) { result.push_back(m.type()); }
+            return result;
+    }, "Get the series types of the update/read dataframe of an element type");
+
+  mod.method("get_element_metadata_indices", [] (element_type type) {
+            std::vector<int> result;
+            for (const auto& m : pypowsybl::getNetworkDataframeMetadata(type)) { result.push_back(m.isIndex() ? 1 : 0); }
+            return result;
+    }, "Get the index flags of the update/read dataframe of an element type");
+
+  mod.method("get_element_creation_metadata_names", [] (element_type type) {
+            std::vector<std::string> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.name()); } }
+            return result;
+    }, "Get the series names of the creation dataframe of an element type");
+
+  mod.method("get_element_creation_metadata_types", [] (element_type type) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.type()); } }
+            return result;
+    }, "Get the series types of the creation dataframe of an element type");
+
+  mod.method("get_element_creation_metadata_indices", [] (element_type type) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.isIndex() ? 1 : 0); } }
+            return result;
+    }, "Get the index flags of the creation dataframe of an element type");
+
+  mod.method("get_element_creation_dataframes_count", [] (element_type type) {
+            return (int) pypowsybl::getNetworkElementCreationDataframesMetadata(type).size();
+    }, "Get the number of dataframes needed to create an element type");
+
+  mod.method("get_element_creation_metadata_names_at", [] (element_type type, int dataframeIndex) {
+            std::vector<std::string> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.name()); }
+            }
+            return result;
+    }, "Get the series names of the i-th creation dataframe of an element type");
+
+  mod.method("get_element_creation_metadata_types_at", [] (element_type type, int dataframeIndex) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.type()); }
+            }
+            return result;
+    }, "Get the series types of the i-th creation dataframe of an element type");
+
+  mod.method("get_element_creation_metadata_indices_at", [] (element_type type, int dataframeIndex) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkElementCreationDataframesMetadata(type);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.isIndex() ? 1 : 0); }
+            }
+            return result;
+    }, "Get the index flags of the i-th creation dataframe of an element type");
+
+
+  // Extension creation / update / removal (reuses the ElementDataframe builder)
+  mod.method("create_extensions", [] (pypowsybl::JavaHandle network, ElementDataframe& builder, std::string name) {
+            std::vector<dataframe> dfs = builder.build_dataframes();
+            dataframe_array dataframes;
+            dataframes.dataframes = dfs.data();
+            dataframes.dataframes_count = (int) dfs.size();
+            pypowsybl::createExtensions(network, &dataframes, name);
+    }, "Create extensions of a given name from a dataframe builder");
+
+  mod.method("update_extension", [] (pypowsybl::JavaHandle network, ElementDataframe& builder, std::string name, std::string tableName) {
+            dataframe df = builder.build_dataframe();
+            pypowsybl::updateNetworkElementsExtensionsWithSeries(network, name, tableName, &df);
+    }, "Update extensions of a given name from a dataframe builder");
+
+  mod.method("remove_extensions", [] (pypowsybl::JavaHandle network, std::string name, std::vector<std::string> const& ids) {
+            pypowsybl::removeExtensions(network, name, ids);
+    }, "Remove the extensions of a given name from the elements with the given ids");
+
+  mod.method("get_extensions_information", [] () {
+            return pypowsybl::getExtensionsInformation();
+    }, "Get a dataframe describing all the available extensions");
+
+  mod.method("get_extension_creation_metadata_names", [] (std::string name) {
+            std::vector<std::string> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.name()); } }
+            return result;
+    }, "Get the series names of the creation dataframe of an extension");
+
+  mod.method("get_extension_creation_metadata_types", [] (std::string name) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.type()); } }
+            return result;
+    }, "Get the series types of the creation dataframe of an extension");
+
+  mod.method("get_extension_creation_metadata_indices", [] (std::string name) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (!metadata.empty()) { for (const auto& m : metadata[0]) { result.push_back(m.isIndex() ? 1 : 0); } }
+            return result;
+    }, "Get the index flags of the creation dataframe of an extension");
+
+  // Per-dataframe creation metadata, for the extensions that need several dataframes.
+  mod.method("get_extension_creation_dataframes_count", [] (std::string name) {
+            return (int) pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name).size();
+    }, "Get the number of dataframes needed to create an extension");
+
+  mod.method("get_extension_creation_metadata_names_at", [] (std::string name, int dataframeIndex) {
+            std::vector<std::string> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.name()); }
+            }
+            return result;
+    }, "Get the series names of the i-th creation dataframe of an extension");
+
+  mod.method("get_extension_creation_metadata_types_at", [] (std::string name, int dataframeIndex) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.type()); }
+            }
+            return result;
+    }, "Get the series types of the i-th creation dataframe of an extension");
+
+  mod.method("get_extension_creation_metadata_indices_at", [] (std::string name, int dataframeIndex) {
+            std::vector<int> result;
+            auto metadata = pypowsybl::getNetworkExtensionsCreationDataframesMetadata(name);
+            if (dataframeIndex >= 0 && dataframeIndex < (int) metadata.size()) {
+                for (const auto& m : metadata[dataframeIndex]) { result.push_back(m.isIndex() ? 1 : 0); }
+            }
+            return result;
+    }, "Get the index flags of the i-th creation dataframe of an extension");
+
+  mod.method("get_extension_metadata_names", [] (std::string name, std::string tableName) {
+            std::vector<std::string> result;
+            for (const auto& m : pypowsybl::getNetworkExtensionsDataframeMetadata(name, tableName)) { result.push_back(m.name()); }
+            return result;
+    }, "Get the series names of the update dataframe of an extension");
+
+  mod.method("get_extension_metadata_types", [] (std::string name, std::string tableName) {
+            std::vector<int> result;
+            for (const auto& m : pypowsybl::getNetworkExtensionsDataframeMetadata(name, tableName)) { result.push_back(m.type()); }
+            return result;
+    }, "Get the series types of the update dataframe of an extension");
+
+  mod.method("get_extension_metadata_indices", [] (std::string name, std::string tableName) {
+            std::vector<int> result;
+            for (const auto& m : pypowsybl::getNetworkExtensionsDataframeMetadata(name, tableName)) { result.push_back(m.isIndex() ? 1 : 0); }
+            return result;
+    }, "Get the index flags of the update dataframe of an extension");
 }
