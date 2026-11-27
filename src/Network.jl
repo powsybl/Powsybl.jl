@@ -822,10 +822,22 @@ module Network
   Columns: `id`, `low_bus_or_busbar_index`, `aligned_buses_or_busbar_count`,
   `low_section_index`, `section_count`, `bus_or_busbar_section_prefix_id`,
   `switch_prefix_id`, `switch_kinds`.
+
+  `switch_kinds` gives, for a voltage level, the kinds of the switches between its sections:
+  a comma-separated string such as `"BREAKER, DISCONNECTOR"` or, in a `DataFrame`, a
+  collection of kinds.
   """
   function create_voltage_level_topology(network::NetworkHandle; raise_exception::Bool = true, kwargs...)
-    return create_network_modification(network, VOLTAGE_LEVEL_TOPOLOGY_CREATION; raise_exception, kwargs...)
+    columns = Pair{Symbol, Any}[name => (name === :switch_kinds ? _switch_kinds(value) : value)
+                                for (name, value) in kwargs]
+    return create_network_modification(network, VOLTAGE_LEVEL_TOPOLOGY_CREATION; raise_exception, columns...)
   end
+
+  # The engine reads the kinds of a voltage level as one comma-separated string without spaces.
+  _switch_kinds_entry(entry::AbstractVector) = join((_switch_kinds_entry(kind) for kind in entry), ",")
+  _switch_kinds_entry(entry) = replace(String(entry), " " => "")
+  _switch_kinds(value::AbstractVector) = [_switch_kinds_entry(entry) for entry in value]
+  _switch_kinds(value) = value === nothing ? nothing : _switch_kinds_entry(value)
 
   """
       create_coupling_device(network; raise_exception = true, kwargs...)
@@ -893,14 +905,14 @@ module Network
 
   # Each topology modification also takes its columns as a DataFrame, as an alternative to
   # the keyword form above.
-  for (fname, modification) in [
-        (:create_voltage_level_topology, :VOLTAGE_LEVEL_TOPOLOGY_CREATION),
-        (:create_coupling_device, :CREATE_COUPLING_DEVICE),
-        (:create_line_on_line, :CREATE_LINE_ON_LINE),
-        (:revert_create_line_on_line, :REVERT_CREATE_LINE_ON_LINE),
-        (:connect_voltage_level_on_line, :CONNECT_VOLTAGE_LEVEL_ON_LINE),
-        (:revert_connect_voltage_level_on_line, :REVERT_CONNECT_VOLTAGE_LEVEL_ON_LINE),
-        (:replace_tee_point_by_voltage_level_on_line, :REPLACE_TEE_POINT_BY_VOLTAGE_LEVEL_ON_LINE),
+  for fname in [
+        :create_voltage_level_topology,
+        :create_coupling_device,
+        :create_line_on_line,
+        :revert_create_line_on_line,
+        :connect_voltage_level_on_line,
+        :revert_connect_voltage_level_on_line,
+        :replace_tee_point_by_voltage_level_on_line,
       ]
     @eval begin
       """
@@ -911,7 +923,7 @@ module Network
       """
       function $(fname)(network::NetworkHandle, df::DataFrame; raise_exception::Bool = true, kwargs...)
         _reject_mixed_input(kwargs)
-        return create_network_modification(network, $(modification), df; raise_exception)
+        return $(fname)(network; raise_exception, _column_pairs(df)...)
       end
     end
   end

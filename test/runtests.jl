@@ -333,6 +333,22 @@ end
   busbars = N.get_busbar_sections(network)[:, "id"]
   @test length(busbars) == 2
 
+  # Several sections: the switches between them are listed in `switch_kinds`, as a string
+  # (spaces allowed) or, in a DataFrame, as a collection of kinds
+  sectioned = N.create_empty()
+  N.create_substations(sectioned; id = "S1", country = "FR")
+  N.create_voltage_levels(sectioned; id = ["VL1", "VL2"], substation_id = ["S1", "S1"],
+                          topology_kind = ["NODE_BREAKER", "NODE_BREAKER"], nominal_v = [400.0, 400.0])
+  N.create_voltage_level_topology(sectioned; id = "VL1", aligned_buses_or_busbar_count = 1,
+                                  section_count = 3, switch_kinds = "BREAKER, DISCONNECTOR")
+  @test size(N.get_busbar_sections(sectioned), 1) == 3
+  @test sort(N.get_switches(sectioned)[:, "kind"]) == ["BREAKER", "DISCONNECTOR", "DISCONNECTOR", "DISCONNECTOR"]
+  N.create_voltage_level_topology(sectioned, DataFrame(id = ["VL2"], aligned_buses_or_busbar_count = [1],
+                                                       section_count = [3],
+                                                       switch_kinds = [["BREAKER", "DISCONNECTOR"]]))
+  @test size(N.get_busbar_sections(sectioned), 1) == 6
+  @test count(==("BREAKER"), N.get_switches(sectioned)[:, "kind"]) == 2
+
   # Couple the two busbar sections; a coupling device adds switches
   switches_before = size(N.get_switches(network), 1)
   N.create_coupling_device(network;
