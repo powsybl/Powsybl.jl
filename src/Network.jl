@@ -1068,7 +1068,7 @@ module Network
     provided = Pair{Symbol, Any}[name => value for (name, value) in kwargs]
     if feeder_type_name !== nothing
       # The element type is a column like any other, so it has to span every row.
-      rows = maximum((_column_length(value) for (_, value) in provided if value !== nothing); init = 1)
+      rows = maximum((_column_length(value) for (_, value) in provided if value !== nothing); init = 0)
       push!(provided, :feeder_type => rows == 1 ? feeder_type_name : fill(feeder_type_name, rows))
     end
 

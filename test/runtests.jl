@@ -568,6 +568,12 @@ end
                                                         DataFrame(voltage_level_id = ["VL1"],
                                                                   node1 = [0], node2 = [1]))
 
+  # A DataFrame without rows creates nothing
+  unchanged, _ = node_breaker_network()
+  N.create_load_bay(unchanged, DataFrame(id = String[], p0 = Float64[], q0 = Float64[],
+                                         bus_or_busbar_section_id = String[], position_order = Int[]))
+  @test size(N.get_loads(unchanged), 1) == 0
+
   # Mixing the two forms is rejected rather than silently dropping one
   network3, busbars3 = node_breaker_network()
   @test_throws ArgumentError N.create_load_bay(network3, DataFrame(id = ["LOAD2"], p0 = [1.0]);
