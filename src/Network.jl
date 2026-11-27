@@ -790,6 +790,10 @@ module Network
   argument is a column of the modification's dataframe (scalar or vector); the columns are
   coerced to the schema PowSyBl expects. This is the generic entry point behind the
   `create_*` / `connect_*` / `replace_*` helpers below.
+
+  For `CREATE_FEEDER_BAY`, `CREATE_LINE_FEEDER` and `CREATE_TWO_WINDINGS_TRANSFORMER_FEEDER`
+  the schema is only known per element type, so the columns are sent as given, neither
+  checked nor coerced: use the `create_*_bay` / `create_*_bays` functions for those.
   """
   function create_network_modification(network::NetworkHandle, modification_type::NetworkModificationType;
                                        raise_exception::Bool = true, kwargs...)
